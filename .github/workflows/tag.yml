@@ -9,8 +9,5 @@ jobs:
     # "uses" reusable workflow, so "with" provide a map of inputs passed to the reusable workflow
     # and can be referenced by the `inputs` context (e.g. - ${{ inputs.environment }})
     # https://docs.github.com/en/actions/using-workflows/workflow-syntax-for-github-actions#jobsjob_idwith
-    with:
-      # Tagging will build an image intended for "prd" environment
-      environment: prd
 
 
