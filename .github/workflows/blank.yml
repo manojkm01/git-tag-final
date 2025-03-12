@@ -1,13 +1,10 @@
 name: Main2DR
 on:
-   push:
-    tags:
-      - "v*" 
-
+ workflow_call:
 permissions:
   id-token: write
-  contents: write
-  
+  pull-requests: write
+  contents: read
 jobs:
   # This workflow contains a single job called "build"
   build:
