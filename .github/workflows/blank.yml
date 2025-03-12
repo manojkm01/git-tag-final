@@ -5,29 +5,6 @@ on:
   workflow_dispatch:
   # This workflow is reused by multiple workflow triggers:
   # https://docs.github.com/en/actions/using-workflows/reusing-workflows#creating-a-reusable-workflow
-  workflow_call:
-    inputs:
-      # Inputs forwarded from job calling this reusable workflow
-      environment:
-        description: "Environment for which this Next.js app will test, build, and publish {stg, prd}"
-        required: true
-        type: string
-      publish:
-        description: "Whether to build and publish the Docker image to the Vast Artifactory"
-        required: false
-        type: boolean
-        default: false
-    secrets:
-      # map of secrets that can be used in this reusable workflow
-      DOPPLER_TOKEN_ECR:
-        required: true
-        description: Doppler Token for accessing ECR secrets
-      DOPPLER_TOKEN_PROJECT:
-        required: true
-        description: Doppler Token for accessing project secrets
-      ARTIFACTORY_ACCESS_TOKEN:
-        required: true
-        description: Artifactory Access Token for pulling workflow base images
 permissions:
   id-token: write
   pull-requests: write
