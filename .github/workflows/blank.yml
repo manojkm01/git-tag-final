@@ -34,7 +34,7 @@ permissions:
   contents: read
 jobs:
   nextjs:
-    runs-on: arc-runner-default
+    runs-on: ubuntu-latest
     container:
       # This image is used by multiple workflows and jobs for common tooling:
       # https://code.vastspace.com/Vast/gsw-docker-images
