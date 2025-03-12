@@ -1,33 +1,163 @@
-name: Main2DR
+name: Next.js CI/CD
 on:
- workflow_dispatch:
-
+  push:
+    tags: v*
+  workflow_dispatch:
+  # This workflow is reused by multiple workflow triggers:
+  # https://docs.github.com/en/actions/using-workflows/reusing-workflows#creating-a-reusable-workflow
+  workflow_call:
+    inputs:
+      # Inputs forwarded from job calling this reusable workflow
+      environment:
+        description: "Environment for which this Next.js app will test, build, and publish {stg, prd}"
+        required: true
+        type: string
+      publish:
+        description: "Whether to build and publish the Docker image to the Vast Artifactory"
+        required: false
+        type: boolean
+        default: false
+    secrets:
+      # map of secrets that can be used in this reusable workflow
+      DOPPLER_TOKEN_ECR:
+        required: true
+        description: Doppler Token for accessing ECR secrets
+      DOPPLER_TOKEN_PROJECT:
+        required: true
+        description: Doppler Token for accessing project secrets
+      ARTIFACTORY_ACCESS_TOKEN:
+        required: true
+        description: Artifactory Access Token for pulling workflow base images
 permissions:
   id-token: write
-  contents: write
-  
+  pull-requests: write
+  contents: read
 jobs:
-  # This workflow contains a single job called "build"
-  build:
-    # The type of runner that the job will run on
-    runs-on: ubuntu-latest
-
+  nextjs:
+    runs-on: arc-runner-default
+    container:
+      # This image is used by multiple workflows and jobs for common tooling:
+      # https://code.vastspace.com/Vast/gsw-docker-images
+      image: artifactory.int.vastspace.com/vast-docker/gsw-cicd:0.4.0
+      credentials:
+        # Vast Artifactory is private and requires credentials for access:
+        username: ${{ vars.ARTIFACTORY_SERVICE_USER }}
+        password: ${{ secrets.ARTIFACTORY_ACCESS_TOKEN }}
+    environment:
+      name: "${{ inputs.environment }}"
+    env:
+      DOPPLER_CONFIG_ECR: ${{ vars.DOPPLER_CONFIG_ECR }}
+      DOPPLER_TOKEN_ECR: "${{ secrets.DOPPLER_TOKEN_ECR }}"
+      DOPPLER_TOKEN_PROJECT: "${{ secrets.DOPPLER_TOKEN_PROJECT }}"
+      DEPLOYMENT_ENVIRONMENT: "${{ inputs.environment }}"
+      REPO_SLUG: ${{ github.event.repository.name }}
+      GIT_BRANCH: ${{ github.ref }}
+      GIT_COMMIT: ${{ github.sha }}
+      GIT_TAG: ${{ github.ref }}
+    outputs:
+      tag: ${{ steps.env.outputs.TAG }}
+      version: ${{ steps.env.outputs.VERSION }}
     steps:
-      # checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
-      - name: Checkout code
-        uses: actions/checkout@v4
+
+      # Step 1: Checkout the repository
+      - uses: actions/checkout@v4.1.0
         with:
-          ref: 'refs/heads/main'
-        
-      - name: Setup JFrog CLI for SAAS main
-        uses: jfrog/setup-jfrog-cli@v4
-        id: setup-cli-main
-        env:  
-          JF_URL: https://incloudmaster.jfrog.io
-        with:
-          oidc-provider-name: manoj-git
-          oidc-audience: manoj
-      
-      - name: Download file status.txt from repo
+          fetch-depth: 0
+
+      # DEBUG FOR JF OIDC
+      - name: Install jq
+        run: apk add jq
+      - name: Debug OIDC Token
         run: |
-          jf c s 
+          # Get the token
+          TOKEN_RESPONSE=$(curl -sS -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=jfrog-github")
+          echo "Response has value field: $(echo $TOKEN_RESPONSE | jq 'has("value")')"
+          
+          # Extract and decode the token directly
+          TOKEN=$(echo $TOKEN_RESPONSE | jq -r '.value')
+          echo "Token length: ${#TOKEN}"
+          echo "Token format check: $(echo $TOKEN | grep -o '\.' | wc -l) periods found"
+          
+          # Try to decode header and payload
+          echo "Header (base64 decoded):"
+          echo $TOKEN | cut -d. -f1 | base64 -d 2>/dev/null || echo "Failed to decode header"
+          echo "Payload (base64 decoded):"
+          echo $TOKEN | cut -d. -f2 | base64 -d 2>/dev/null || echo "Failed to decode payload"
+          
+          # For tag-specific debugging
+          echo "GitHub ref: $GITHUB_REF"
+          echo "GitHub event name: $GITHUB_EVENT_NAME"
+          
+          # Debug the actual URL construction
+          echo "Token request URL check: Does it contain '&' already? $(echo $ACTIONS_ID_TOKEN_REQUEST_URL | grep -o '&' | wc -l)"
+
+
+      # Step 2: Set the pnpm store path and save as env var for following steps
+      - name: Set and get pnpm store directory
+        run: |
+          pnpm config set store-dir .pnpm-store
+          export STORE_PATH=$(pnpm store path --silent)
+          echo "STORE_PATH=${STORE_PATH}" >> $GITHUB_ENV
+          mkdir -p "${STORE_PATH}"
+          ls -la "${STORE_PATH}"
+
+      # Step 3: Cache the pnpm store when the lock file changes
+      - name: Cache pnpm
+        uses: actions/cache@v3.3.2
+        with:
+          path: ${{ env.STORE_PATH }}
+          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-store-
+      # Step 4: Create .env file and export TAG/TAG_* env vars to GITHUB_ENV
+      - name: Create .env and TAG file(s)
+        id: env
+        run: bash ./scripts/env.sh
+
+      # Step 5: Lint, Unit Test, and check for build-time errors
+      - name: Lint, Unit Test
+        run: |-
+          bash ./scripts/install.sh
+          bash ./scripts/lint.sh
+          bash ./scripts/test.sh
+          pnpm build
+
+      # Step 6: Configure JFrog and Docker
+      - name: Install Docker
+        run: apk add --update docker
+
+      - name: Setup JFrog 🐸 CLI with GitHub OIDC
+        uses: jfrog/setup-jfrog-cli@v4
+        id: jfrog
+        with:
+          oidc-provider-name: ${{ vars.JF_OIDC_PROVIDER_NAME }}
+          oidc-audience: ${{ vars.JF_OIDC_AUDIENCE }}
+        env:
+          JF_URL: ${{ vars.JF_URL }}
+          JF_LOG_LEVEL: DEBUG
+          # Add verbose logging
+          CI: true
+          DEBUG: "*"
+
+
+      - name: Log in to Artifactory
+        uses: docker/login-action@v2
+        with:
+          registry: ${{ vars.ARTIFACTORY_HOST }}
+          username: ${{ steps.jfrog.outputs.oidc-user }}
+          password: ${{ steps.jfrog.outputs.oidc-token }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+        with:
+          driver-opts: |
+            image=${{ vars.ARTIFACTORY_HOST }}/vast-docker/moby/buildkit:buildx-stable-1
+
+      # Step 7: Build Docker image
+      - name: Build and Publish Images
+        run: bash ./scripts/build.sh
+
+      # Step 8: Publish Docker image
+      - name: Build and Publish Images
+        if: ${{ inputs.publish == true }}
+        run: bash ./scripts/publish.sh
