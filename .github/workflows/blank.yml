@@ -1,14 +1,13 @@
-name: Next.js CI/CD
+name: Main2DR
 on:
-  push:
-    tags: v*
-  workflow_dispatch:
-  # This workflow is reused by multiple workflow triggers:
-  # https://docs.github.com/en/actions/using-workflows/reusing-workflows#creating-a-reusable-workflow
+   push:
+    tags:
+      - "v*" 
+
 permissions:
   id-token: write
-  pull-requests: write
-  contents: read
+  contents: write
+  
 jobs:
   # This workflow contains a single job called "build"
   build:
@@ -30,12 +29,7 @@ jobs:
         with:
           oidc-provider-name: manoj-git
           oidc-audience: manoj
-
-      # Step 2: Set the pnpm store path and save as env var for following steps
-      - name: Set and get pnpm store directory
+      
+      - name: Download file status.txt from repo
         run: |
-          pnpm config set store-dir .pnpm-store
-          export STORE_PATH=$(pnpm store path --silent)
-          echo "STORE_PATH=${STORE_PATH}" >> $GITHUB_ENV
-          mkdir -p "${STORE_PATH}"
-          ls -la "${STORE_PATH}"
+          jf c s 
