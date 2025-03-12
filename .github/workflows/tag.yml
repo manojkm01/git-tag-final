@@ -1,7 +1,5 @@
 name: Tag Release for "prd"
 on:
-  push:
-    tags: v*
   workflow_dispatch:
 jobs:
   tag:
