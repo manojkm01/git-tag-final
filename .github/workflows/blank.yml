@@ -33,64 +33,26 @@ permissions:
   pull-requests: write
   contents: read
 jobs:
-  nextjs:
+  # This workflow contains a single job called "build"
+  build:
+    # The type of runner that the job will run on
     runs-on: ubuntu-latest
-    container:
-      # This image is used by multiple workflows and jobs for common tooling:
-      # https://code.vastspace.com/Vast/gsw-docker-images
-      image: artifactory.int.vastspace.com/vast-docker/gsw-cicd:0.4.0
-      credentials:
-        # Vast Artifactory is private and requires credentials for access:
-        username: ${{ vars.ARTIFACTORY_SERVICE_USER }}
-        password: ${{ secrets.ARTIFACTORY_ACCESS_TOKEN }}
-    environment:
-      name: "${{ inputs.environment }}"
-    env:
-      DOPPLER_CONFIG_ECR: ${{ vars.DOPPLER_CONFIG_ECR }}
-      DOPPLER_TOKEN_ECR: "${{ secrets.DOPPLER_TOKEN_ECR }}"
-      DOPPLER_TOKEN_PROJECT: "${{ secrets.DOPPLER_TOKEN_PROJECT }}"
-      DEPLOYMENT_ENVIRONMENT: "${{ inputs.environment }}"
-      REPO_SLUG: ${{ github.event.repository.name }}
-      GIT_BRANCH: ${{ github.ref }}
-      GIT_COMMIT: ${{ github.sha }}
-      GIT_TAG: ${{ github.ref }}
-    outputs:
-      tag: ${{ steps.env.outputs.TAG }}
-      version: ${{ steps.env.outputs.VERSION }}
+
     steps:
-
-      # Step 1: Checkout the repository
-      - uses: actions/checkout@v4.1.0
+      # checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
+      - name: Checkout code
+        uses: actions/checkout@v4
         with:
-          fetch-depth: 0
-
-      # DEBUG FOR JF OIDC
-      - name: Install jq
-        run: apk add jq
-      - name: Debug OIDC Token
-        run: |
-          # Get the token
-          TOKEN_RESPONSE=$(curl -sS -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=jfrog-github")
-          echo "Response has value field: $(echo $TOKEN_RESPONSE | jq 'has("value")')"
-          
-          # Extract and decode the token directly
-          TOKEN=$(echo $TOKEN_RESPONSE | jq -r '.value')
-          echo "Token length: ${#TOKEN}"
-          echo "Token format check: $(echo $TOKEN | grep -o '\.' | wc -l) periods found"
-          
-          # Try to decode header and payload
-          echo "Header (base64 decoded):"
-          echo $TOKEN | cut -d. -f1 | base64 -d 2>/dev/null || echo "Failed to decode header"
-          echo "Payload (base64 decoded):"
-          echo $TOKEN | cut -d. -f2 | base64 -d 2>/dev/null || echo "Failed to decode payload"
-          
-          # For tag-specific debugging
-          echo "GitHub ref: $GITHUB_REF"
-          echo "GitHub event name: $GITHUB_EVENT_NAME"
-          
-          # Debug the actual URL construction
-          echo "Token request URL check: Does it contain '&' already? $(echo $ACTIONS_ID_TOKEN_REQUEST_URL | grep -o '&' | wc -l)"
-
+          ref: 'refs/heads/main'
+        
+      - name: Setup JFrog CLI for SAAS main
+        uses: jfrog/setup-jfrog-cli@v4
+        id: setup-cli-main
+        env:  
+          JF_URL: https://incloudmaster.jfrog.io
+        with:
+          oidc-provider-name: manoj-git
+          oidc-audience: manoj
 
       # Step 2: Set the pnpm store path and save as env var for following steps
       - name: Set and get pnpm store directory
