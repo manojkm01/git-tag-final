@@ -24,7 +24,7 @@ jobs:
         env:  
           JF_URL: https://incloudmaster.jfrog.io
         with:
-          oidc-provider-name: manoj-git1
+          oidc-provider-name: manoj-git
           oidc-audience: manoj
       
       - name: Download file status.txt from repo
