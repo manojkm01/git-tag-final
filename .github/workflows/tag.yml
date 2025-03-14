@@ -19,7 +19,7 @@ jobs:
         with:
           ref: 'refs/heads/main'
         
-      - name: Setup JFrog CLI for SAAS main
+      - name: Setup JFrog CLI for test main
         uses: jfrog/setup-jfrog-cli@v4
         id: setup-cli-main
         env:  
@@ -27,10 +27,6 @@ jobs:
         with:
           oidc-provider-name: manoj-git
           oidc-audience: manoj
-      - name: Download file status.txt from repo
-        run: |
-          jf c s 
-          jf rt ping
   tag:
     uses: ./.github/workflows/blank.yml
     # "uses" reusable workflow, so "with" provide a map of inputs passed to the reusable workflow
