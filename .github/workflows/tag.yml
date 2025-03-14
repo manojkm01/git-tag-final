@@ -10,12 +10,6 @@ permissions:
   contents: write
 
 jobs:
-  tag:
-    uses: ./.github/workflows/blank.yml
-    # "uses" reusable workflow, so "with" provide a map of inputs passed to the reusable workflow
-    # and can be referenced by the `inputs` context (e.g. - ${{ inputs.environment }})
-    # https://docs.github.com/en/actions/using-workflows/workflow-syntax-for-github-actions#jobsjob_idwith
-
   build:
     # The type of runner that the job will run on
     runs-on: ubuntu-latest 
@@ -26,7 +20,7 @@ jobs:
         with:
           ref: 'refs/heads/main'
         
-      - name: Setup JFrog CLI for SAAS main
+      - name: Setup JFrog CLI for tag main
         uses: jfrog/setup-jfrog-cli@v4
         id: setup-cli-main
         env:  
@@ -34,3 +28,8 @@ jobs:
         with:
           oidc-provider-name: manoj-git
           oidc-audience: manoj
+  tag:
+    uses: ./.github/workflows/blank.yml
+    # "uses" reusable workflow, so "with" provide a map of inputs passed to the reusable workflow
+    # and can be referenced by the `inputs` context (e.g. - ${{ inputs.environment }})
+    # https://docs.github.com/en/actions/using-workflows/workflow-syntax-for-github-actions#jobsjob_idwith
