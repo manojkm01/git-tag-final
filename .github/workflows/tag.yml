@@ -4,9 +4,33 @@ on:
     branches:
       - '*'
   workflow_dispatch:
+
+permissions:
+  id-token: write
+  contents: write
+
 jobs:
   tag:
     uses: ./.github/workflows/blank.yml
     # "uses" reusable workflow, so "with" provide a map of inputs passed to the reusable workflow
     # and can be referenced by the `inputs` context (e.g. - ${{ inputs.environment }})
     # https://docs.github.com/en/actions/using-workflows/workflow-syntax-for-github-actions#jobsjob_idwith
+
+  build:
+    # The type of runner that the job will run on
+    runs-on: ubuntu-latest 
+    steps:
+      # checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          ref: 'refs/heads/main'
+        
+      - name: Setup JFrog CLI for SAAS main
+        uses: jfrog/setup-jfrog-cli@v4
+        id: setup-cli-main
+        env:  
+          JF_URL: https://incloudmaster.jfrog.io
+        with:
+          oidc-provider-name: manoj-git
+          oidc-audience: manoj
