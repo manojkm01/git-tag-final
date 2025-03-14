@@ -10,7 +10,3 @@ jobs:
     # "uses" reusable workflow, so "with" provide a map of inputs passed to the reusable workflow
     # and can be referenced by the `inputs` context (e.g. - ${{ inputs.environment }})
     # https://docs.github.com/en/actions/using-workflows/workflow-syntax-for-github-actions#jobsjob_idwith
-
-  build:
-    # The type of runner that the job will run on
-    runs-on: ubuntu-latest
