@@ -3,8 +3,7 @@ on:
  workflow_call:
 permissions:
   id-token: write
-  pull-requests: write
-  contents: read
+  contents: write
 jobs:
   # This workflow contains a single job called "build"
   build:
