@@ -1,4 +1,4 @@
-name: Main2DR
+name: Main1DR
 on:
   push:
     tags:
